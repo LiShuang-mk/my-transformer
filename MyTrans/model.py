@@ -20,23 +20,36 @@ class Transformer(torch.nn.Module):
         self,
         src_vocab_size,
         tgt_vocab_size,
-        max_len,
+        max_src_len,
+        max_tgt_len,
         d_model,
         n_layers,
         n_heads,
         d_ff,
         device,
+        pad_idx=0,
         dropout=0.1,
+        use_torch_version=False,
     ):
         super(Transformer, self).__init__()
 
         self.N = n_layers
+        self.max_src_len = max_src_len
+        self.max_tgt_len = max_tgt_len
 
         self.src_embedding = TransformerEmbedding(
-            vocab_size=src_vocab_size, max_len=max_len, d_model=d_model, device=device
+            vocab_size=src_vocab_size,
+            max_len=max_src_len,
+            d_model=d_model,
+            device=device,
+            padding_idx=pad_idx,
         )
         self.tgt_embedding = TransformerEmbedding(
-            vocab_size=tgt_vocab_size, max_len=max_len, d_model=d_model, device=device
+            vocab_size=tgt_vocab_size,
+            max_len=max_tgt_len,
+            d_model=d_model,
+            device=device,
+            padding_idx=pad_idx,
         )
         self.encoders = torch.nn.ModuleList(
             [
@@ -56,21 +69,54 @@ class Transformer(torch.nn.Module):
                     nhead=n_heads,
                     dim_feedforward=d_ff,
                     dropout=dropout,
+                    device=device,
                 )
                 for _ in range(n_layers)
             ]
         )
         self.linear = torch.nn.Linear(d_model, tgt_vocab_size)
 
+        # if use_torch_version:
+        #     self.encoders = torch.nn.ModuleList(
+        #         [
+        #             torch.nn.TransformerEncoderLayer(
+        #                 d_model=d_model,
+        #                 nhead=n_heads,
+        #                 dim_feedforward=d_ff,
+        #                 dropout=dropout,
+        #                 batch_first=True,
+        #                 norm_first=True,
+        #                 device=device,
+        #             )
+        #             for _ in range(n_layers)
+        #         ]
+        #     )
+        #     self.decoders = torch.nn.ModuleList(
+        #         [
+        #             torch.nn.TransformerDecoderLayer(
+        #                 d_model=d_model,
+        #                 nhead=n_heads,
+        #                 dim_feedforward=d_ff,
+        #                 dropout=dropout,
+        #                 batch_first=True,
+        #                 norm_first=True,
+        #                 device=device,
+        #             )
+        #             for _ in range(n_layers)
+        #         ]
+        #     )
+
     def forward(
         self,
         src,
         tgt,
+        src_len,
+        tgt_len,
     ):
-        src_emb = self.src_embedding(src)
-        tgt_emb = self.tgt_embedding(tgt)
+        src_emb = self.src_embedding(src, src_len)
+        tgt_emb = self.tgt_embedding(tgt, tgt_len)
         for i in range(self.N):
             enc_output = self.encoders[i](src_emb)
             dec_output = self.decoders[i](tgt_emb, enc_output)
         output = self.linear(dec_output)
-        return torch.nn.functional.softmax(output, dim=-1)
+        return output

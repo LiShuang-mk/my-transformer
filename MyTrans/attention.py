@@ -45,11 +45,11 @@ class ScaledDotProductAttention(torch.nn.Module):
         attn: torch.Tensor = torch.bmm(q, k.transpose(1, 2)) / self.temper
 
         # mask padding to -inf
-        attn[attn[:, :] == mask] = float("-inf")
+        # attn[attn[:, :] == mask] = float("-inf")
         
         # prevent look-ahead to future words
         if look_ahead_mask is not None:
-            attn.masked_fill(look_ahead_mask == 0, float("-inf"))
+            attn = attn.masked_fill(look_ahead_mask == 0, float("-inf"))
 
         # softmax(·)
         attn = torch.nn.functional.softmax(attn, dim=-1)

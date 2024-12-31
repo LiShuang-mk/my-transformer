@@ -34,15 +34,20 @@ class PositionalEncoding(torch.nn.Module):
         self.encoding[:, 0::2] = torch.sin(pos / (10000 ** (_2i / d_model)))
         self.encoding[:, 1::2] = torch.cos(pos / (10000 ** (_2i / d_model)))
 
-    def forward(self, x):
+    def forward(self, x, x_len):
         """
         ### Args
             - x: (batch_size, seq_len)
         ### Returns
-            - (seq_len, d_model)
+            - (batch_size, seq_len, d_model)
         """
-        _, seq_len = x.size()
-        return self.encoding[:seq_len, :]
+        enc = torch.zeros(
+            [x.shape[0], x.shape[1], self.encoding.shape[1]], device=x.device
+        )
+        for i in range(x.shape[0]):
+            # enc[i, : x_len[i]] = self.encoding[: x_len[i], :]
+            enc[i, :] = self.encoding[:, :]
+        return enc
 
 
 class TransformerEmbedding(torch.nn.Module):
@@ -53,11 +58,13 @@ class TransformerEmbedding(torch.nn.Module):
     ):
         """ """
         super(TransformerEmbedding, self).__init__()
-        self.tok_emb = torch.nn.Embedding(vocab_size, d_model, padding_idx=padding_idx)
+        self.tok_emb = torch.nn.Embedding(
+            vocab_size, d_model, padding_idx=padding_idx, device=device
+        )
         self.pos_emb = PositionalEncoding(d_model, max_len, device)
         self.drop_out = torch.nn.Dropout(dropout)
 
-    def forward(self, x):
+    def forward(self, x, x_len):
         """
         ### Args
             - x: (batch_size, seq_len)
@@ -65,6 +72,6 @@ class TransformerEmbedding(torch.nn.Module):
             - (batch_size, seq_len, d_model)
         """
         tok_emb = self.tok_emb(x)
-        pos_emb = self.pos_emb(x)
-        emb = tok_emb[:] + pos_emb
+        pos_emb = self.pos_emb(x, x_len)
+        emb = tok_emb + pos_emb
         return self.drop_out(emb)

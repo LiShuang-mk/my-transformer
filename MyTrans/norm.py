@@ -51,3 +51,16 @@ class AddAndNorm(torch.nn.Module):
         res = self.layer_norm(res)
         
         return res
+    
+class NormOnly(torch.nn.Module):
+    
+    def __init__(self, hidden_size, eps=1e-6):
+        super(NormOnly, self).__init__()
+        
+        self.layer_norm = LayerNormalization(hidden_size, eps)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        # layer normalization
+        x = self.layer_norm(x)
+        
+        return x

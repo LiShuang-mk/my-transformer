@@ -1,0 +1,1 @@
+python train.py --model_dim 64 --num_layers 2 --num_heads 8 --ff_dim 128 --batch_size 32
